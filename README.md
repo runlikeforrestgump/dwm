@@ -3,7 +3,7 @@ Patches for dwm (dynamic window manager from suckless).
 fancybarclickable
 =================
 
-I created the fancybarclickable patch for dwm. It is based on [fancycoloredbarclickable](http://dwm.suckless.org/patches/fancycoloredbarclickable), which is based on [fancybar](http://dwm.suckless.org/patches/fancybar) and [statuscolors](http://dwm.suckless.org/patches/statuscolors). The fancybarclickable patch shows the window titles of all the windows in the current tag in the dwm bar, and it lets you select windows by selecting their title in the dwm bar.
+I created the [fancybarclickable](http://dwm.suckless.org/patches/fancybarclickable) patch for dwm. It is based on [fancycoloredbarclickable](http://dwm.suckless.org/patches/fancycoloredbarclickable), which is based on [fancybar](http://dwm.suckless.org/patches/fancybar) and [statuscolors](http://dwm.suckless.org/patches/statuscolors). The fancybarclickable patch shows the window titles of all the windows in the current tag in the dwm bar, and it lets you select windows by selecting their title in the dwm bar.
 
 In the first half of 2013, there was a huge dwm refactor. Unfortunately, the fancycoloredbarclickable, fancybar, and statuscolors patches are older than that and were affected by the refactor, so they no longer work.
 
