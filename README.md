@@ -12,7 +12,8 @@ I took the fancybar patch and updated it against [commit 3d1090b](http://git.suc
 The fancybarclickable patch shows the window titles of all the windows in the current tag in the dwm bar, and it lets you select windows by selecting their title in the dwm bar.
 
 I merely updated existing patches. Credits to the authors of the original patches:
+
 1. Mate Nagy for fancybar
 2. Stefan Mark for fancycoloredbarclickable
 
-If anyone wants me to update the statuscolors patch, let me know. Naturally, if I update statuscolors, I'll also update fancycoloredbarclickable.
+If anyone wants me to update the statuscolors patch, let me know. Naturally, if I update statuscolors, I'll also update fancycoloredbarclickable, since I already took care of the fancybarclickable part of that patch.
