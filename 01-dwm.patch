@@ -1,0 +1,674 @@
+diff --git a/config.def.h b/config.def.h
+index 875885b..5aa751d 100644
+--- a/config.def.h
++++ b/config.def.h
+@@ -1,7 +1,9 @@
+ /* See LICENSE file for copyright and license details. */
+ 
++#include <X11/XF86keysym.h>
++
+ /* appearance */
+-static const char font[]            = "-*-terminus-medium-r-*-*-16-*-*-*-*-*-*-*";
++static const char font[]            = "-*-dina-medium-r-normal-*-13-*-*-*-*-*-*-*";
+ static const char normbordercolor[] = "#444444";
+ static const char normbgcolor[]     = "#222222";
+ static const char normfgcolor[]     = "#bbbbbb";
+@@ -12,6 +14,7 @@ static const unsigned int borderpx  = 1;        /* border pixel of windows */
+ static const unsigned int snap      = 32;       /* snap pixel */
+ static const Bool showbar           = True;     /* False means no bar */
+ static const Bool topbar            = True;     /* False means bottom bar */
++static const Bool viewontag         = True;     /* Switch view on tag switch */
+ 
+ /* tagging */
+ static const char *tags[] = { "1", "2", "3", "4", "5", "6", "7", "8", "9" };
+@@ -22,14 +25,21 @@ static const Rule rules[] = {
+ 	 *	WM_NAME(STRING) = title
+ 	 */
+ 	/* class      instance    title       tags mask     isfloating   monitor */
+-	{ "Gimp",     NULL,       NULL,       0,            True,        -1 },
+-	{ "Firefox",  NULL,       NULL,       1 << 8,       False,       -1 },
++    { NULL,       NULL,       NULL,       0,            True,        -1 },
++    { "URxvt",    NULL,       NULL,       0,            False,       -1 },
+ };
+ 
+ /* layout(s) */
+ static const float mfact      = 0.55; /* factor of master area size [0.05..0.95] */
+ static const int nmaster      = 1;    /* number of clients in master area */
+-static const Bool resizehints = True; /* True means respect size hints in tiled resizals */
++static const int nviews       = 1;    /* number of tags highlighted by default */
++static const Bool resizehints = False; /* True means respect size hints in tiled resizals */
++static const Bool statusall   = False;/* True means status is shown in all bars, not just active monitor */
++
++static const int master[1];           /* nmaster override per monitor */
++//static const int master[] = {1,-1}; /* monitor 0 = nmaster 1, monitor 1 = no nmaster (all vertical) */
++static const int views[1];            /* nviews override per monitor */
++//static const int views[]  = {4,~0}; /* monitor 0 = nviews 4, monitor 1 = all (all highlighted) */
+ 
+ static const Layout layouts[] = {
+ 	/* symbol     arrange function */
+@@ -39,10 +49,13 @@ static const Layout layouts[] = {
+ };
+ 
+ /* key definitions */
+-#define MODKEY Mod1Mask
++#define ALTKEY Mod1Mask
++#define MODKEY Mod4Mask
+ #define TAGKEYS(KEY,TAG) \
+ 	{ MODKEY,                       KEY,      view,           {.ui = 1 << TAG} }, \
+ 	{ MODKEY|ControlMask,           KEY,      toggleview,     {.ui = 1 << TAG} }, \
++	{ MODKEY|ALTKEY,                KEY,      nview,          {.ui = 1 << TAG} }, \
++	{ MODKEY|ALTKEY|ControlMask,    KEY,      ntoggleview,    {.ui = 1 << TAG} }, \
+ 	{ MODKEY|ShiftMask,             KEY,      tag,            {.ui = 1 << TAG} }, \
+ 	{ MODKEY|ControlMask|ShiftMask, KEY,      toggletag,      {.ui = 1 << TAG} },
+ 
+@@ -52,7 +65,34 @@ static const Layout layouts[] = {
+ /* commands */
+ static char dmenumon[2] = "0"; /* component of dmenucmd, manipulated in spawn() */
+ static const char *dmenucmd[] = { "dmenu_run", "-m", dmenumon, "-fn", font, "-nb", normbgcolor, "-nf", normfgcolor, "-sb", selbgcolor, "-sf", selfgcolor, NULL };
+-static const char *termcmd[]  = { "st", NULL };
++static const char *termcmd[]  = {"urxvtc", NULL};
++static const char *volumedown[] = {"amixer", "-q", "set", "Master", "3-", "unmute", NULL};
++static const char *volumeup[] = {"amixer", "-q", "set", "Master", "3+", "unmute", NULL};
++static const char *mute[] = {"amixer", "-q", "set", "Master", "toggle", NULL};
++static const char *xscreenlock[] = {"xscreensaver-command", "-lock", NULL};
++
++static void moveresize(const Arg *arg) {
++    XEvent ev;
++    Monitor *m = selmon;
++
++    if (!(m->sel && arg && arg->v)) {
++        return;
++    }
++
++    if (m->lt[m->sellt]->arrange && !m->sel->isfloating) {
++        togglefloating(NULL);
++    }
++
++    resize(m->sel, m->sel->x + ((int *)arg->v)[0],
++        m->sel->y + ((int *)arg->v)[1],
++        m->sel->w + ((int *)arg->v)[2],
++        m->sel->h + ((int *)arg->v)[3],
++        True);
++
++    while(XCheckMaskEvent(dpy, EnterWindowMask, &ev));
++}
++
++#include "maximize.c"
+ 
+ static Key keys[] = {
+ 	/* modifier                     key        function        argument */
+@@ -88,7 +128,26 @@ static Key keys[] = {
+ 	TAGKEYS(                        XK_7,                      6)
+ 	TAGKEYS(                        XK_8,                      7)
+ 	TAGKEYS(                        XK_9,                      8)
++	{ MODKEY,                       XK_grave,  reset_view,     {0} },
+ 	{ MODKEY|ShiftMask,             XK_q,      quit,           {0} },
++    { MODKEY,                       XK_Down,   moveresize,     {.v = (int []){ 0, 25, 0, 0 }} },
++    { MODKEY,                       XK_Up,     moveresize,     {.v = (int []){ 0, -25, 0, 0 }} },
++    { MODKEY,                       XK_Right,  moveresize,     {.v = (int []){ 25, 0, 0, 0 }} },
++    { MODKEY,                       XK_Left,   moveresize,     {.v = (int []){ -25, 0, 0, 0 }} },
++    { MODKEY|ShiftMask,             XK_Down,   moveresize,     {.v = (int []){ 0, 0, 0, 25 }} },
++    { MODKEY|ShiftMask,             XK_Up,     moveresize,     {.v = (int []){ 0, 0, 0, -25 }} },
++    { MODKEY|ShiftMask,             XK_Right,  moveresize,     {.v = (int []){ 0, 0, 25, 0 }} },
++    { MODKEY|ShiftMask,             XK_Left,   moveresize,     {.v = (int []){ 0, 0, -25, 0 }} },
++    { ALTKEY,                       XK_F10,    togglemaximize, {0} },
++    { 0,          XF86XK_AudioLowerVolume,     spawn,          {.v = volumedown} },
++    { 0,          XF86XK_AudioRaiseVolume,     spawn,          {.v = volumeup} },
++    { 0,                 XF86XK_AudioMute,     spawn,          {.v = mute} },
++    { MODKEY|ShiftMask,              XK_l,     spawn,          {.v = xscreenlock} },
++    { MODKEY,                        XK_s,     swapfocus,      {0} },
++    { MODKEY|ControlMask|ShiftMask,  XK_h, togglehorizontalmax, {0} },
++    { MODKEY|ControlMask|ShiftMask,  XK_l, togglehorizontalmax, {0} },
++    { MODKEY|ControlMask|ShiftMask,  XK_j, toggleverticalmax,  {0} },
++    { MODKEY|ControlMask|ShiftMask,  XK_k, toggleverticalmax,  {0} },
+ };
+ 
+ /* button definitions */
+@@ -97,6 +156,10 @@ static Button buttons[] = {
+ 	/* click                event mask      button          function        argument */
+ 	{ ClkLtSymbol,          0,              Button1,        setlayout,      {0} },
+ 	{ ClkLtSymbol,          0,              Button3,        setlayout,      {.v = &layouts[2]} },
++    { ClkWinTitle,          0,              Button1,        focusonclick,   {0} },
++	{ ClkMonNum,            0,              Button1,        focusmon,       {.i = +1} },
++	{ ClkMonNum,            0,              Button2,        reset_view,     {0} },
++	{ ClkMonNum,            0,              Button3,        focusmon,       {.i = -1} },
+ 	{ ClkWinTitle,          0,              Button2,        zoom,           {0} },
+ 	{ ClkStatusText,        0,              Button2,        spawn,          {.v = termcmd } },
+ 	{ ClkClientWin,         MODKEY,         Button1,        movemouse,      {0} },
+@@ -104,6 +167,8 @@ static Button buttons[] = {
+ 	{ ClkClientWin,         MODKEY,         Button3,        resizemouse,    {0} },
+ 	{ ClkTagBar,            0,              Button1,        view,           {0} },
+ 	{ ClkTagBar,            0,              Button3,        toggleview,     {0} },
++	{ ClkTagBar,            MODKEY|ALTKEY,  Button1,        nview,          {0} },
++	{ ClkTagBar,            MODKEY|ALTKEY,  Button3,        ntoggleview,    {0} },
+ 	{ ClkTagBar,            MODKEY,         Button1,        tag,            {0} },
+ 	{ ClkTagBar,            MODKEY,         Button3,        toggletag,      {0} },
+ };
+diff --git a/dwm.c b/dwm.c
+index f896170..6c74b99 100644
+--- a/dwm.c
++++ b/dwm.c
+@@ -63,7 +63,7 @@ enum { NetSupported, NetWMName, NetWMState,
+        NetWMFullscreen, NetActiveWindow, NetWMWindowType,
+        NetWMWindowTypeDialog, NetClientList, NetLast }; /* EWMH atoms */
+ enum { WMProtocols, WMDelete, WMState, WMTakeFocus, WMLast }; /* default atoms */
+-enum { ClkTagBar, ClkLtSymbol, ClkStatusText, ClkWinTitle,
++enum { ClkTagBar, ClkLtSymbol, ClkMonNum, ClkStatusText, ClkWinTitle,
+        ClkClientWin, ClkRootWin, ClkLast }; /* clicks */
+ 
+ typedef union {
+@@ -91,7 +91,7 @@ struct Client {
+ 	int basew, baseh, incw, inch, maxw, maxh, minw, minh;
+ 	int bw, oldbw;
+ 	unsigned int tags;
+-	Bool isfixed, isfloating, isurgent, neverfocus, oldstate, isfullscreen;
++	Bool ismax, wasfloating, isfixed, isfloating, isurgent, neverfocus, oldstate, isfullscreen;
+ 	Client *next;
+ 	Client *snext;
+ 	Monitor *mon;
+@@ -129,6 +129,8 @@ struct Monitor {
+ 	Monitor *next;
+ 	Window barwin;
+ 	const Layout *lt[2];
++    int titlebarbegin;
++    int titlebarend;
+ };
+ 
+ typedef struct {
+@@ -163,9 +165,11 @@ static void detachstack(Client *c);
+ static Monitor *dirtomon(int dir);
+ static void drawbar(Monitor *m);
+ static void drawbars(void);
++static void drawline(int x, int y);
+ static void enternotify(XEvent *e);
+ static void expose(XEvent *e);
+ static void focus(Client *c);
++static void focusonclick(const Arg *arg);
+ static void focusin(XEvent *e);
+ static void focusmon(const Arg *arg);
+ static void focusstack(const Arg *arg);
+@@ -205,12 +209,14 @@ static void setup(void);
+ static void showhide(Client *c);
+ static void sigchld(int unused);
+ static void spawn(const Arg *arg);
++static void swapfocus();
+ static void tag(const Arg *arg);
+ static void tagmon(const Arg *arg);
+ static void tile(Monitor *);
+ static void togglebar(const Arg *arg);
+ static void togglefloating(const Arg *arg);
+ static void toggletag(const Arg *arg);
++static void ntoggleview(const Arg *arg);
+ static void toggleview(const Arg *arg);
+ static void unfocus(Client *c, Bool setfocus);
+ static void unmanage(Client *c, Bool destroyed);
+@@ -225,6 +231,7 @@ static void updatestatus(void);
+ static void updatewindowtype(Client *c);
+ static void updatetitle(Client *c);
+ static void updatewmhints(Client *c);
++static void nview(const Arg *arg);
+ static void view(const Arg *arg);
+ static Client *wintoclient(Window w);
+ static Monitor *wintomon(Window w);
+@@ -232,13 +239,15 @@ static int xerror(Display *dpy, XErrorEvent *ee);
+ static int xerrordummy(Display *dpy, XErrorEvent *ee);
+ static int xerrorstart(Display *dpy, XErrorEvent *ee);
+ static void zoom(const Arg *arg);
++static void reset_view(const Arg *arg);
+ 
+ /* variables */
++static Client *prevclient = NULL;
+ static const char broken[] = "broken";
+ static char stext[256];
+ static int screen;
+ static int sw, sh;           /* X display screen geometry width, height */
+-static int bh, blw = 0;      /* bar geometry */
++static int bh, blw, bmw = 0; /* bar geometry */
+ static int (*xerrorxlib)(Display *, XErrorEvent *);
+ static unsigned int numlockmask = 0;
+ static void (*handler[LASTEvent]) (XEvent *) = {
+@@ -432,10 +441,14 @@ buttonpress(XEvent *e) {
+ 		}
+ 		else if(ev->x < x + blw)
+ 			click = ClkLtSymbol;
+-		else if(ev->x > selmon->ww - TEXTW(stext))
++		else if(ev->x < x + blw + bmw)
++			click = ClkMonNum;
++		else if(ev->x > selmon->titlebarend)
+ 			click = ClkStatusText;
+-		else
++		else {
++            arg.ui = ev->x;
+ 			click = ClkWinTitle;
++        }
+ 	}
+ 	else if((c = wintoclient(ev->window))) {
+ 		focus(c);
+@@ -444,7 +457,7 @@ buttonpress(XEvent *e) {
+ 	for(i = 0; i < LENGTH(buttons); i++)
+ 		if(click == buttons[i].click && buttons[i].func && buttons[i].button == ev->button
+ 		&& CLEANMASK(buttons[i].mask) == CLEANMASK(ev->state))
+-			buttons[i].func(click == ClkTagBar && buttons[i].arg.i == 0 ? &arg : &buttons[i].arg);
++			buttons[i].func((click == ClkTagBar || click == ClkWinTitle) && buttons[i].arg.i == 0 ? &arg : &buttons[i].arg);
+ }
+ 
+ void
+@@ -692,11 +705,14 @@ dirtomon(int dir) {
+ 
+ void
+ drawbar(Monitor *m) {
+-	int x, xx, w;
+-	unsigned int i, occ = 0, urg = 0;
+-	Client *c;
++	int x, xx, w, ow, mw = 0, extra, tw, a = 0, s = 0;
++    char posbuf[10];
++	unsigned int i, occ = 0, urg = 0, n = 0;
++	Client *c, *firstvis, *lastvis = NULL;
+ 
+ 	for(c = m->clients; c; c = c->next) {
++        if(ISVISIBLE(c))
++            n++;
+ 		occ |= c->tags;
+ 		if(c->isurgent)
+ 			urg |= c->tags;
+@@ -714,34 +730,117 @@ drawbar(Monitor *m) {
+ 	drw_setscheme(drw, &scheme[SchemeNorm]);
+ 	drw_text(drw, x, 0, w, bh, m->ltsymbol, 0);
+ 	x += w;
++	char custom[4] = {0}; // needs to be +1 of actual size, for some reason
++	snprintf(custom, sizeof(custom), "<%d>", m->num);
++	w = bmw = TEXTW(custom);
++	drw_setscheme(drw, m == selmon ? &scheme[SchemeSel] : &scheme[SchemeNorm]);
++	drw_text(drw, x, 0, w, bh, custom, 0);
++	x += w;
+ 	xx = x;
+-	if(m == selmon) { /* status is only drawn on selected monitor */
+-		w = TEXTW(stext);
++	if(m == selmon || statusall) { /* status is only drawn on selected monitor, unless statusall is true */
++        if(m->lt[m->sellt]->arrange == monocle){
++            x = xx;
++            for(c = nexttiled(m->clients), a = 0, s = 0; c; c = nexttiled(c->next), a++) {
++                if(c == m->stack)
++                    s = a;
++            }
++            if(!s && a)
++                s = a;
++            snprintf(posbuf, LENGTH(posbuf), "[%d/%d]", s, a);
++            w = TEXTW(posbuf);
++            drw_text(drw, x, 0, w, bh, posbuf, 0);
++            xx = x + w;
++        }
++
++        /*
++        char *buf = stext, *ptr = buf;
++        while (*ptr) {
++            for (i = 0; *ptr < 0; i++, ptr++);
++            w 2+= drw_font_getexts_width(drw->font, buf, i);
++            w += TEXTW(buf);
++            buf=++ptr;
++        }*/
++        w = TEXTW(stext);
++
+ 		x = m->ww - w;
+ 		if(x < xx) {
+ 			x = xx;
+ 			w = m->ww - xx;
+ 		}
++        m->titlebarend=x;
+ 		drw_text(drw, x, 0, w, bh, stext, 0);
+ 	}
+-	else
++	else {
+ 		x = m->ww;
+-	if((w = x - xx) > bh) {
+-		x = xx;
+-		if(m->sel) {
+-			drw_setscheme(drw, m == selmon ? &scheme[SchemeSel] : &scheme[SchemeNorm]);
+-			drw_text(drw, x, 0, w, bh, m->sel->name, 0);
+-			drw_rect(drw, x, 0, w, bh, m->sel->isfixed, m->sel->isfloating, 0);
+-		}
+-		else {
++        m->titlebarbegin=x;
++    }
++    for(c = m->clients; c && !ISVISIBLE(c); c = c->next);
++    firstvis = c;
++
++    drw_setscheme(drw, m == selmon ? &scheme[SchemeSel] : &scheme[SchemeNorm]);
++    w = x - xx;
++    x = xx;
++
++    if(n > 0) {
++        mw = w / n;
++        extra = 0;
++        i = 0;
++
++        while(c) {
++            lastvis = c;
++            tw = TEXTW(c->name);
++            if(tw < mw) extra += (mw - tw); else i++;
++            for(c = c->next; c && !ISVISIBLE(c); c = c->next);
++        }
++
++        if(i > 0) mw += extra / i;
++
++        c = firstvis;
++        xx = x;
++    }
++    m->titlebarbegin=x;
++    while(w > bh) {
++        if(c) {
++            ow = w;
++            tw = TEXTW(c->name);
++            w = MIN(ow, tw);
++
++            if(w > mw) w = mw;
++            if(c == lastvis) w = ow;
++
++            drw_text(drw, x, 0, w, bh, c->name, False);
++            if(c != firstvis) drawline(x, 0);
++            drw_rect(drw, x, 0, w, bh, m->sel->isfixed, m->sel->isfloating, True);
++
++            x += w;
++            w = ow - w;
++            for(c = c->next; c && !ISVISIBLE(c); c = c->next);
++		} else {
+ 			drw_setscheme(drw, &scheme[SchemeNorm]);
+ 			drw_text(drw, x, 0, w, bh, NULL, 0);
++            break;
+ 		}
+ 	}
++
++    if(m == selmon && m->sel && ISVISIBLE(m->sel)) {
++        drw_text(drw, x, 0, w, bh, m->sel->name, True);
++        drw_rect(drw, x, 0, w, bh, m->sel->isfixed, m->sel->isfloating, True);
++    }
++
+ 	drw_map(drw, m->barwin, 0, 0, m->ww, bh);
+ }
+ 
+ void
++drawline(int x, int y) {
++    XGCValues gcv;
++
++    gcv.foreground = drw->scheme->fg->rgb;
++
++    XChangeGC(dpy, drw->gc, GCForeground, &gcv);
++    XDrawLine(dpy, drw->drawable, drw->gc, x, y, x, y + (drw->font->ascent + drw->font->descent + 2));
++}
++
++void
+ drawbars(void) {
+ 	Monitor *m;
+ 
+@@ -774,7 +873,7 @@ expose(XEvent *e) {
+ 	XExposeEvent *ev = &e->xexpose;
+ 
+ 	if(ev->count == 0 && (m = wintomon(ev->window)))
+-		drawbar(m);
++		statusall ? drawbars() : drawbar(m);
+ }
+ 
+ void
+@@ -804,6 +903,51 @@ focus(Client *c) {
+ }
+ 
+ void
++focusonclick(const Arg *arg) {
++    int x, w, mw = 0, tw, n = 0, i = 0, extra = 0;
++    Monitor *m = selmon;
++    Client *c, *firstvis;
++
++    for(c = m->clients; c && !ISVISIBLE(c); c = c->next);
++    firstvis = c;
++
++    for(c = m->clients; c; c = c->next)
++        if (ISVISIBLE(c))
++            n++;
++
++    if(n > 0) {
++        mw = (m->titlebarend - m->titlebarbegin) / n;
++        c = firstvis;
++        while(c) {
++            tw = TEXTW(c->name);
++            if(tw < mw) extra += (mw - tw); else i++;
++            for(c = c->next; c && !ISVISIBLE(c); c = c->next);
++        }
++        if(i > 0) mw += extra / i;
++    }
++
++    x=m->titlebarbegin;
++
++    c = firstvis;
++    while(x < m->titlebarend) {
++        if(c) {
++            w=MIN(TEXTW(c->name), mw);
++            if (x < arg->i && x+w > arg->i) {
++                focus(c);
++                restack(selmon);
++                break;
++            } else {
++                x+=w;
++            }
++
++            for(c = c->next; c && !ISVISIBLE(c); c = c->next);
++        } else {
++            break;
++        }
++    }
++}
++
++void
+ focusin(XEvent *e) { /* there are some broken focus acquiring clients */
+ 	XFocusChangeEvent *ev = &e->xfocus;
+ 
+@@ -1047,6 +1191,8 @@ manage(Window w, XWindowAttributes *wa) {
+ 	updatewmhints(c);
+ 	XSelectInput(dpy, w, EnterWindowMask|FocusChangeMask|PropertyChangeMask|StructureNotifyMask);
+ 	grabbuttons(c, False);
++	c->wasfloating = False;
++	c->ismax = False;
+ 	if(!c->isfloating)
+ 		c->isfloating = c->oldstate = trans != None || c->isfixed;
+ 	if(c->isfloating)
+@@ -1221,8 +1367,7 @@ propertynotify(XEvent *e) {
+ 		}
+ 		if(ev->atom == XA_WM_NAME || ev->atom == netatom[NetWMName]) {
+ 			updatetitle(c);
+-			if(c == c->mon->sel)
+-				drawbar(c->mon);
++            statusall ? drawbars() : drawbar(c->mon);
+ 		}
+ 		if(ev->atom == netatom[NetWMWindowType])
+ 			updatewindowtype(c);
+@@ -1329,7 +1474,7 @@ restack(Monitor *m) {
+ 	XEvent ev;
+ 	XWindowChanges wc;
+ 
+-	drawbar(m);
++	statusall ? drawbars() : drawbar(m);
+ 	if(!m->sel)
+ 		return;
+ 	if(m->sel->isfloating || !m->lt[m->sellt]->arrange)
+@@ -1479,7 +1624,7 @@ setlayout(const Arg *arg) {
+ 	if(selmon->sel)
+ 		arrange(selmon);
+ 	else
+-		drawbar(selmon);
++		statusall ? drawbars() : drawbar(selmon);
+ }
+ 
+ /* arg > 1.0 will set mfact absolutly */
+@@ -1593,11 +1738,23 @@ spawn(const Arg *arg) {
+ }
+ 
+ void
++swapfocus(){
++	Client *c;
++	for(c = selmon->clients; c && c != prevclient; c = c->next) ;
++	if(c == prevclient) {
++		focus(prevclient);
++		restack(prevclient->mon);
++	}
++}
++
++void
+ tag(const Arg *arg) {
+ 	if(selmon->sel && arg->ui & TAGMASK) {
+ 		selmon->sel->tags = arg->ui & TAGMASK;
+ 		focus(NULL);
+ 		arrange(selmon);
++		if(viewontag)
++			view(arg);
+ 	}
+ }
+ 
+@@ -1670,6 +1827,17 @@ toggletag(const Arg *arg) {
+ }
+ 
+ void
++ntoggleview(const Arg *arg) {
++	const Arg n = {.i = +1};
++	const int mon = selmon->num;
++	do {
++		focusmon(&n);
++		toggleview(arg);
++	}
++	while (selmon->num != mon);
++}
++
++void
+ toggleview(const Arg *arg) {
+ 	unsigned int newtagset = selmon->tagset[selmon->seltags] ^ (arg->ui & TAGMASK);
+ 
+@@ -1684,6 +1852,7 @@ void
+ unfocus(Client *c, Bool setfocus) {
+ 	if(!c)
+ 		return;
++	prevclient = c;
+ 	grabbuttons(c, False);
+ 	XSetWindowBorder(dpy, c->win, scheme[SchemeNorm].border->rgb);
+ 	if(setfocus) {
+@@ -1934,7 +2103,7 @@ void
+ updatestatus(void) {
+ 	if(!gettextprop(root, XA_WM_NAME, stext, sizeof(stext)))
+ 		strcpy(stext, "dwm-"VERSION);
+-	drawbar(selmon);
++	statusall ? drawbars() : drawbar(selmon);
+ }
+ 
+ void
+@@ -1968,6 +2137,17 @@ updatewmhints(Client *c) {
+ }
+ 
+ void
++nview(const Arg *arg) {
++	const Arg n = {.i = +1};
++	const int mon = selmon->num;
++	do {
++		focusmon(&n);
++		view(arg);
++	}
++	while (selmon->num != mon);
++}
++
++void
+ view(const Arg *arg) {
+ 	if((arg->ui & TAGMASK) == selmon->tagset[selmon->seltags])
+ 		return;
+@@ -2042,16 +2222,35 @@ xerrorstart(Display *dpy, XErrorEvent *ee) {
+ void
+ zoom(const Arg *arg) {
+ 	Client *c = selmon->sel;
++	prevclient = nexttiled(selmon->clients);
+ 
+ 	if(!selmon->lt[selmon->sellt]->arrange
+ 	|| (selmon->sel && selmon->sel->isfloating))
+ 		return;
+ 	if(c == nexttiled(selmon->clients))
+-		if(!c || !(c = nexttiled(c->next)))
++		if(!c || !(c = prevclient = nexttiled(c->next)))
+ 			return;
+ 	pop(c);
+ }
+ 
++void
++reset_view(const Arg *arg) {
++	const Arg n = {.i = +1};
++	const Arg m = {.f = 1 + mfact};
++	const int mon = selmon->num;
++	Arg i = {.i = 0};
++	Arg v = {.ui = 0};
++	do {
++		focusmon(&n);
++		i.i = (master[selmon->num] ? master[selmon->num] : nmaster) - selmon->nmaster;
++		incnmaster(&i);
++		setmfact(&m);
++		v.ui = (views[selmon->num] == ~0 ? ~0 : ((1 << (views[selmon->num] ? views[selmon->num] : nviews)) -1));
++		view(&v);
++	}
++	while (selmon->num != mon);
++}
++
+ int
+ main(int argc, char *argv[]) {
+ 	if(argc == 2 && !strcmp("-v", argv[1]))
+@@ -2065,6 +2264,8 @@ main(int argc, char *argv[]) {
+ 	checkotherwm();
+ 	setup();
+ 	scan();
++	const Arg r = {0};
++	reset_view(&r);
+ 	run();
+ 	cleanup();
+ 	XCloseDisplay(dpy);
+diff --git a/maximize.c b/maximize.c
+new file mode 100644
+index 0000000..1f5a8a0
+--- /dev/null
++++ b/maximize.c
+@@ -0,0 +1,45 @@
++void
++maximize(int x, int y, int w, int h) {
++	XEvent ev;
++
++	if(!selmon->sel || selmon->sel->isfixed)
++		return;
++	XRaiseWindow(dpy, selmon->sel->win);
++	if(!selmon->sel->ismax) {
++		if(!selmon->lt[selmon->sellt]->arrange || selmon->sel->isfloating)
++			selmon->sel->wasfloating = True;
++		else {
++			togglefloating(NULL);
++			selmon->sel->wasfloating = False;
++		}
++		selmon->sel->oldx = selmon->sel->x;
++		selmon->sel->oldy = selmon->sel->y;
++		selmon->sel->oldw = selmon->sel->w;
++		selmon->sel->oldh = selmon->sel->h;
++		resize(selmon->sel, x, y, w, h, True);
++		selmon->sel->ismax = True;
++	}
++	else {
++		resize(selmon->sel, selmon->sel->oldx, selmon->sel->oldy, selmon->sel->oldw, selmon->sel->oldh, True);
++		if(!selmon->sel->wasfloating)
++			togglefloating(NULL);
++		selmon->sel->ismax = False;
++	}
++	drawbar(selmon);
++	while(XCheckMaskEvent(dpy, EnterWindowMask, &ev));
++}
++
++void
++togglemaximize(const Arg *arg) {
++	maximize(selmon->wx, selmon->wy, selmon->ww - 2 * borderpx, selmon->wh - 2 * borderpx);
++}
++
++void
++toggleverticalmax(const Arg *arg) {
++	maximize(selmon->sel->x, selmon->wy, selmon->sel->w, selmon->wh - 2 * borderpx);
++}
++
++void
++togglehorizontalmax(const Arg *arg) {
++	maximize(selmon->wx, selmon->sel->y, selmon->ww - 2 * borderpx, selmon->sel->h);
++}
