@@ -22,7 +22,7 @@ If anyone wants me to update the statuscolors patch, let me know. Naturally, if 
 ============
 
 01-dwm.patch is a patch of patches (what I like to call my quilt patch). It is patched against [commit 3d1090b](http://git.suckless.org/dwm/commit/?id=3d1090ba896319368c4771b88d325fcee368a608), which was the latest version of dwm at the time. It consists of:
-* [fancybarclickable](http://dwm.suckless.org/patches/fancybarclickable) (written by me)
+* [fancybarclickable](http://dwm.suckless.org/patches/fancybarclickable) (written by me, Mate Nagy, and Stefan Mark)
 * [maximize](http://dwm.suckless.org/patches/maximize) (written by Jan Christoph Ebersbach)
 * [moveresize](http://dwm.suckless.org/patches/moveresize) (written by Claudio M. Alessi and Jan Christoph Ebersbach)
 * [multimon](http://dwm.suckless.org/patches/multimon) (written by Gary B. Genett)
